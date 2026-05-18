@@ -18,7 +18,7 @@ def sanitize_filename(name: str) -> str:
 def extract_analysis_content(raw_output: str) -> str:
     """
     从 hermes-agent 输出中提取纯分析内容
-    策略：提取 "╭─ ⚕ Hermes ─" 和 "╰─" 之间的内容
+    策略：找 "╭─ ⚕ Hermes ─" 标记（⚕ emoji），提取其后的内容到 "╰─" 边框行之前
     """
     # 去除ANSI转义序列
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
@@ -27,29 +27,41 @@ def extract_analysis_content(raw_output: str) -> str:
     # 去除braille unicode空白
     clean = re.sub(r'[\u2800-\u28FF]', '', clean)
 
-    # 找 "╭─ ⚕ Hermes ─" 开始标记
+    # 找包含 ⚕ 的行作为起始边界
+    # 模式: ╭─ 后跟空格、⚕、空格、Hermes、空格、─
     start_match = re.search(r'╭─\s*⚕\s*Hermes\s*─', clean)
-    if not start_match:
-        # fallback: 找包含"【财经新闻深度分析】"的内容块
-        match = re.search(r'【财经新闻深度分析】', clean)
-        if match:
-            # 取从该位置到session尾部之前的所有内容
-            content = clean[match.start():]
+
+    if start_match:
+        # 内容从该行换行后开始
+        start_pos = clean.find('\n', start_match.end())
+        if start_pos < 0:
+            start_pos = start_match.end()
+        else:
+            start_pos += 1  # 跳过换行符
+
+        # 找结束标记 ╰─ (在 start_pos 之后)
+        end_match = re.search(r'\n╰[─\s]', clean[start_pos:])
+        if end_match:
+            content = clean[start_pos:start_pos + end_match.start()]
+        else:
+            # 没有找到边框结束，取到session前
+            session_pos = clean.find('Session:', start_pos)
+            if session_pos > 0:
+                content = clean[start_pos:session_pos]
+            else:
+                content = clean[start_pos:]
+    else:
+        # Fallback: 找顶部边框行 ╮ 之后的内容（分析内容开始）
+        # 框线行模式: 多个 ─ 后跟 ╮
+        border_match = re.search(r'\n([─]+╮)\s*\n', clean)
+        if border_match:
+            content = clean[border_match.end():]
+            # 去掉结束边框行
+            end_match = re.search(r'\n[─]+╯', content)
+            if end_match:
+                content = content[:end_match.start()]
         else:
             content = clean
-    else:
-        # 找 "╰──────────────────────────────────" 结束标记
-        # 模式: ╰ 后跟任意数量的 ─ 和空格
-        end_match = re.search(r'╰[─\s]', clean[start_match.end():])
-        if end_match:
-            content = clean[start_match.end():start_match.end() + end_match.start()]
-        else:
-            # 没有找到结束标记，取开始标记之后到session尾部之前的内容
-            session_start = clean.find('Session:', start_match.end())
-            if session_start > 0:
-                content = clean[start_match.end():session_start]
-            else:
-                content = clean[start_match.end():]
 
     # 清理多余空行
     content = re.sub(r'\n{3,}', '\n\n', content)

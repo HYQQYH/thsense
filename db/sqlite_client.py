@@ -82,7 +82,7 @@ class SQLiteClient:
             SELECT cn.*, rn.title, rn.time, rn.source, rn.url, rn.content
             FROM classified_news cn
             JOIN raw_news rn ON cn.raw_id = rn.id
-            WHERE cn.status = 'pending'
+            WHERE cn.status = 'pending' 
         """).fetchall()
         return [dict(row) for row in rows]
 
@@ -104,6 +104,12 @@ class SQLiteClient:
         self.conn.execute("""
             UPDATE classified_news SET status = 'filtered' WHERE id = ?
         """, (classified_id,))
+        self.conn.commit()
+
+    def revert_analyzed_to_pending(self):
+        self.conn.execute("""
+            UPDATE classified_news SET status = 'pending' WHERE status = 'analyzed'
+        """)
         self.conn.commit()
 
     def get_config(self, key: str) -> str:

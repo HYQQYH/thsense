@@ -3,6 +3,9 @@ import json
 import time
 import os
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 SYSTEM_PROMPT = """你是一个财经新闻分类助手。根据以下分类体系，判断每条新闻是否属于"影响型财经新闻"。
 
@@ -52,7 +55,7 @@ def classify_news(news_items: list[dict], criteria: str, max_retries: int = 3, r
         retry_intervals = [10, 30, 60]
 
     client = anthropic.Anthropic(
-        api_key=os.environ.get("ANTHROPIC_API_KEY", "")
+        api_key=os.getenv("ANTHROPIC_API_KEY")
     )
 
     batch_size = 50
@@ -74,7 +77,7 @@ def classify_news(news_items: list[dict], criteria: str, max_retries: int = 3, r
                         "role": "user",
                         "content": [{
                             "type": "text",
-                            "text": f"分类条件：{criteria}\n\n新闻列表：{json.dumps(batch, ensure_ascii=False)}\n\n请返回符合条件的新闻索引列表（JSON数组），例如：[0, 3, 5]"
+                            "text": f"新闻列表：{json.dumps(batch, ensure_ascii=False)}\n\n请返回符合条件的新闻索引列表（JSON数组），例如：[0, 3, 5]"
                         }]
                     }]
                 )

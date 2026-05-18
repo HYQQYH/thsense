@@ -3,3 +3,4 @@ anthropic
 PyYAML
 schedule
 pytest
+python-dotenv

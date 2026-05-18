@@ -54,17 +54,17 @@ def job():
             db.mark_raw_news_classified([pending[idx]["id"] for idx in matched_indices])
             logger.info(f"Matched {len(matched_indices)} news items")
 
-        # 3. 深度分析（逐条）
-        logger.info("Analyzing news...")
-        to_analyze = db.get_pending_analysis()
-        if to_analyze:
-            from analyzer import analyze_news
-            date = datetime.now().strftime("%Y-%m-%d")
-            report_paths = analyze_news(to_analyze, date)
-            for i, item in enumerate(to_analyze):
-                path = report_paths[i] if i < len(report_paths) else ""
-                db.mark_analyzed(item["id"], path)
-            logger.info(f"Analysis complete: {len(report_paths)} reports")
+        # # 3. 深度分析（逐条）
+        # logger.info("Analyzing news...")
+        # to_analyze = db.get_pending_analysis()
+        # if to_analyze:
+        #     from analyzer import analyze_news
+        #     date = datetime.now().strftime("%Y-%m-%d")
+        #     report_paths = analyze_news(to_analyze, date)
+        #     for i, item in enumerate(to_analyze):
+        #         path = report_paths[i] if i < len(report_paths) else ""
+        #         db.mark_analyzed(item["id"], path)
+        #     logger.info(f"Analysis complete: {len(report_paths)} reports")
 
         db.close()
         logger.info("=== Job complete ===\n")
