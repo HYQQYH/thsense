@@ -1,0 +1,23 @@
+thsense:
+  news_url: "https://news.10jqka.com.cn/realtimenews.html"
+
+crawler:
+  interval_minutes: 30
+
+classifier:
+  model: "MiniMax-M2.7"
+  criteria: "请筛选出与以下主题相关的财经新闻：A股市场动态、公司并购重组、宏观经济政策"
+  batch_size: 50
+  max_retries: 3
+  retry_intervals: [10, 30, 60]
+
+analyzer:
+  skill_path: "skills/financial-news-analysis/SKILL.md"
+  max_retries: 3
+  retry_intervals: [30, 60, 120]
+
+database:
+  path: "data/news.db"
+
+anthropic:
+  api_key: "${ANTHROPIC_API_KEY}"  # 从环境变量读取
