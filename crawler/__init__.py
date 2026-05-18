@@ -1,2 +1,3 @@
-# Placeholder - actual exports defined after probe confirms selectors
-__all__ = []
+from .spider import fetch_today_news
+
+__all__ = ["fetch_today_news"]
