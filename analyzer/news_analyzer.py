@@ -18,57 +18,57 @@ def sanitize_filename(name: str) -> str:
 def extract_analysis_content(raw_output: str) -> str:
     """
     从 hermes-agent 输出中提取纯分析内容
-    去除：ANSI转义、UI框线、braille空白字符、工具列表、session尾部
+    策略：找到 "Query:" 标记，保留其后的所有内容，去除session尾部
     """
     # 去除ANSI转义序列
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     clean = ansi_escape.sub('', raw_output)
 
-    # 去除所有braille pattern unicode (U+2800-U+28FF)
+    # 去除braille unicode空白
     clean = re.sub(r'[\u2800-\u28FF]', '', clean)
 
-    # 去除Box Drawing和Block Elements字符
-    clean = re.sub(r'[\u2500-\u257F]', '', clean)  # ─ │ etc.
+    # 找 Query: 标记，取其后的所有内容
+    match = re.search(r'Query:\s*使用SKILL:', clean)
+    if not match:
+        # 兜底：去掉头部元信息，保留后半部分
+        lines = clean.split('\n')
+        # 找到第一个包含实际分析内容的行（中文）
+        start_idx = 0
+        for i, line in enumerate(lines):
+            # 跳过明显的工具列表和元信息行
+            if any(kw in line for kw in ['browser:', 'clarify:', 'cronjob:', 'delegation:', 'file:', 'hermes-yuanbao:', 'creative:', 'devops:', 'data-science:', 'github:', 'mcp:', 'media:', 'mlops:', 'note-taking:', 'productivity:', 'research:', 'smart-home:', 'social-media:', 'software-development:']):
+                continue
+            # 跳过路径行
+            if re.match(r'^\s*/home/|^\s*~/', line):
+                continue
+            # 跳过Session/Messages/Duration行
+            if re.match(r'^(Session:|Duration:|Messages:|Resume this)', line.strip()):
+                continue
+            # 跳过纯装饰行
+            if re.match(r'^\s*[╭╮╰│─╯╰╭]\s*$', line):
+                continue
+            # 如果有中文内容，认为是正文开始
+            if re.search(r'[\u4e00-\u9fff]', line):
+                start_idx = i
+                break
 
-    lines = clean.split('\n')
+        content = '\n'.join(lines[start_idx:])
+    else:
+        # 取Query之后的所有内容
+        content = clean[match.end():]
+
+    # 去除session尾部
+    lines = content.split('\n')
     filtered = []
-
     for line in lines:
         stripped = line.strip()
-
-        # 遇到session尾部，停止
         if re.match(r'^(Resume this session|Session:|Duration:|Messages:)', stripped):
             break
-
-        # 跳过包含 "Tools" "Skills" 标题的行（工具列表区）
-        if re.match(r'^Available (Tools|Skills)$', stripped):
-            continue
-
-        # 跳过包含 "· Nous Research" 的行（头部横幅）
-        if re.search(r'·\s*Nous Research', stripped):
-            continue
-
-        # 跳过工具/技能引用行（如 "browser: xxx" 或 "creative: xxx"）
-        if re.match(r'^\s+\w+:\s', stripped):
-            continue
-
-        # 跳过 "(and \d+ more...)" 行
-        if re.match(r'^\s*\(and \d+ more\.\.\.\)', stripped):
-            continue
-
-        # 跳过初始化的agent头部横幅行（短行，包含路径）
-        if re.match(r'^.*(/home/.*\.md|Session:.*)', stripped):
-            continue
-
-        # 跳过空行
-        if not stripped:
-            continue
-
         filtered.append(line)
 
     content = '\n'.join(filtered).strip()
 
-    # 去除多余空行
+    # 清理多余空行
     content = re.sub(r'\n{3,}', '\n\n', content)
 
     return content
