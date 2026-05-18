@@ -16,6 +16,45 @@ def sanitize_filename(name: str) -> str:
     name = name[:80]  # 限制长度
     return name.strip('_')
 
+def extract_analysis_content(raw_output: str) -> str:
+    """
+    从 hermes-agent 输出中提取纯分析内容
+    - 去除终端UI框线（╭╮╰等字符）
+    - 去除ANSI转义序列
+    - 只保留Query之后的内容
+    """
+    # 去除ANSI转义序列
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    clean = ansi_escape.sub('', raw_output)
+
+    # 去除终端UI框线字符（╭╮╰│─等）
+    clean = re.sub(r'[╭╮╰│─]', '', clean)
+
+    # 找到 Query: 之后的实际内容
+    match = re.search(r'Query:\s*使用SKILL:.*?\n+(.*)$', clean, re.DOTALL)
+    if match:
+        content = match.group(1).strip()
+    else:
+        # fallback: 去掉开头的工具列表等元信息，找到实际内容
+        lines = clean.split('\n')
+        content_lines = []
+        capture = False
+        for line in lines:
+            # Skip lines that look like tool/skill listings
+            if re.match(r'^\s*[⠀\s]+', line) and '·' not in line:
+                continue
+            if line.strip().startswith('Query:'):
+                capture = True
+                continue
+            if capture or any(kw in line for kw in ['分析', '影响', '市场', '利润', '财报', '公司']):
+                content_lines.append(line)
+        content = '\n'.join(content_lines).strip()
+
+    # 去除多余空行
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    return content
+
+
 def analyze_single_news(news_item: dict, date: str, max_retries: int = 3) -> str:
     """
     单独分析一条新闻，返回报告文件路径
@@ -50,7 +89,9 @@ def analyze_single_news(news_item: dict, date: str, max_retries: int = 3) -> str
             )
 
             if result.returncode == 0:
-                report_path.write_text(result.stdout, encoding='utf-8')
+                # 提取纯分析内容，去除UI冗余
+                clean_content = extract_analysis_content(result.stdout)
+                report_path.write_text(clean_content, encoding='utf-8')
                 return str(report_path)
             else:
                 raise RuntimeError(f"hermes-agent failed: {result.stderr}")
