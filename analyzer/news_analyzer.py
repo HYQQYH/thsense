@@ -10,52 +10,67 @@ SKILL_NAME = "financial-news-analysis"
 
 def sanitize_filename(name: str) -> str:
     """将新闻标题转为合法的文件名"""
-    # 去除【】等特殊括号，替换空格和路径分隔符
     name = re.sub(r'[【】\[\]（）()\s/\\\\]', '_', name)
     name = re.sub(r'_+', '_', name)
-    name = name[:80]  # 限制长度
+    name = name[:80]
     return name.strip('_')
 
 def extract_analysis_content(raw_output: str) -> str:
     """
     从 hermes-agent 输出中提取纯分析内容
-    - 去除终端UI框线（╭╮╰等字符）
-    - 去除ANSI转义序列
-    - 去除初始化日志（Initializing agent...、📚/🔎/⚕等符号行）
-    - 去除尾部session信息（Resume this session.../Session:.../Duration:...）
+    去除：ANSI转义、UI框线、braille空白字符、工具列表、session尾部
     """
     # 去除ANSI转义序列
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     clean = ansi_escape.sub('', raw_output)
 
-    # 去除终端UI框线字符（╭╮╰│─等）
-    clean = re.sub(r'[╭╮╰│─]', '', clean)
+    # 去除所有braille pattern unicode (U+2800-U+28FF)
+    clean = re.sub(r'[\u2800-\u28FF]', '', clean)
 
-    # 去除ANSI色码符号（⠀⠀ etc.）
-    clean = re.sub(r'[⠀⠀]', '', clean)
+    # 去除Box Drawing和Block Elements字符
+    clean = re.sub(r'[\u2500-\u257F]', '', clean)  # ─ │ etc.
 
-    # 去除初始化日志行（Initializing agent...、📚 preparing、🔎 grep、⚕ Hermes等）
     lines = clean.split('\n')
     filtered = []
+
     for line in lines:
-        # Skip session metadata at end
-        if re.match(r'^(Resume this session|Session:|Duration:|Messages:)', line.strip()):
+        stripped = line.strip()
+
+        # 遇到session尾部，停止
+        if re.match(r'^(Resume this session|Session:|Duration:|Messages:)', stripped):
             break
-        # Skip initialization and tool preparation logs
-        if re.match(r'^\s*(Initializing agent|📚|🔎|⚕)', line.strip()):
+
+        # 跳过包含 "Tools" "Skills" 标题的行（工具列表区）
+        if re.match(r'^Available (Tools|Skills)$', stripped):
             continue
-        # Skip empty lines that are just whitespace
-        if re.match(r'^\s*$', line):
+
+        # 跳过包含 "· Nous Research" 的行（头部横幅）
+        if re.search(r'·\s*Nous Research', stripped):
             continue
-        # Skip lines that are just separator dashes
-        if re.match(r'^\s*[-═\s]+$', line):
+
+        # 跳过工具/技能引用行（如 "browser: xxx" 或 "creative: xxx"）
+        if re.match(r'^\s+\w+:\s', stripped):
             continue
+
+        # 跳过 "(and \d+ more...)" 行
+        if re.match(r'^\s*\(and \d+ more\.\.\.\)', stripped):
+            continue
+
+        # 跳过初始化的agent头部横幅行（短行，包含路径）
+        if re.match(r'^.*(/home/.*\.md|Session:.*)', stripped):
+            continue
+
+        # 跳过空行
+        if not stripped:
+            continue
+
         filtered.append(line)
 
     content = '\n'.join(filtered).strip()
 
     # 去除多余空行
     content = re.sub(r'\n{3,}', '\n\n', content)
+
     return content
 
 
@@ -65,16 +80,13 @@ def analyze_single_news(news_item: dict, date: str, max_retries: int = 3) -> str
     """
     retry_intervals = [30, 60, 120]
 
-    # 确保输出目录存在
     report_dir = Path("reports") / date
     report_dir.mkdir(parents=True, exist_ok=True)
 
-    # 构造文件名
     title = news_item.get('title', 'untitled')
     filename = sanitize_filename(title) + ".md"
     report_path = report_dir / filename
 
-    # 构造查询内容
     news_text = f"标题：{title}\n时间：{news_item.get('time','')}\n内容：{news_item.get('content','')}"
     query = f"使用SKILL:{SKILL_NAME}分析如下财经新闻：\n{news_text}"
 
@@ -93,7 +105,6 @@ def analyze_single_news(news_item: dict, date: str, max_retries: int = 3) -> str
             )
 
             if result.returncode == 0:
-                # 提取纯分析内容，去除UI冗余
                 clean_content = extract_analysis_content(result.stdout)
                 report_path.write_text(clean_content, encoding='utf-8')
                 return str(report_path)
