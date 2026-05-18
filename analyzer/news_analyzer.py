@@ -18,7 +18,7 @@ def sanitize_filename(name: str) -> str:
 def extract_analysis_content(raw_output: str) -> str:
     """
     从 hermes-agent 输出中提取纯分析内容
-    策略：找到 "Query:" 标记，保留其后的所有内容，去除session尾部
+    策略：找 "Query:" 标记取其后内容；fallback时跳过初始化日志行
     """
     # 去除ANSI转义序列
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
@@ -29,48 +29,47 @@ def extract_analysis_content(raw_output: str) -> str:
 
     # 找 Query: 标记，取其后的所有内容
     match = re.search(r'Query:\s*使用SKILL:', clean)
-    if not match:
-        # 兜底：去掉头部元信息，保留后半部分
-        lines = clean.split('\n')
-        # 找到第一个包含实际分析内容的行（中文）
-        start_idx = 0
-        for i, line in enumerate(lines):
-            # 跳过明显的工具列表和元信息行
-            if any(kw in line for kw in ['browser:', 'clarify:', 'cronjob:', 'delegation:', 'file:', 'hermes-yuanbao:', 'creative:', 'devops:', 'data-science:', 'github:', 'mcp:', 'media:', 'mlops:', 'note-taking:', 'productivity:', 'research:', 'smart-home:', 'social-media:', 'software-development:']):
-                continue
-            # 跳过路径行
-            if re.match(r'^\s*/home/|^\s*~/', line):
-                continue
-            # 跳过Session/Messages/Duration行
-            if re.match(r'^(Session:|Duration:|Messages:|Resume this)', line.strip()):
-                continue
-            # 跳过纯装饰行
-            if re.match(r'^\s*[╭╮╰│─╯╰╭]\s*$', line):
-                continue
-            # 如果有中文内容，认为是正文开始
-            if re.search(r'[\u4e00-\u9fff]', line):
-                start_idx = i
-                break
-
-        content = '\n'.join(lines[start_idx:])
-    else:
-        # 取Query之后的所有内容
+    if match:
         content = clean[match.end():]
+    else:
+        content = clean
 
-    # 去除session尾部
+    # 统一过滤：应用skip_patterns去除初始化日志和工具准备行
     lines = content.split('\n')
     filtered = []
+    skip_patterns = [
+        r'^Initializing agent',
+        r'^.*\s+[📚🔎⚕]\s',  # log lines with emoji prefix
+        r'^\s*┊',  # pipe prefix log lines
+        r'^\s*─{3,}\s*$',  # separator lines
+        r'^\s*[╭╮╰│─╯]\s*$',  # box drawing
+    ]
     for line in lines:
+        stripped = line.strip()
+        if any(re.search(p, line) for p in skip_patterns):
+            continue
+        # Skip tool/skill list lines (short lines with : but no Chinese)
+        if re.match(r'^\s+\w+:\s', stripped) and not re.search(r'[\u4e00-\u9fff]', stripped):
+            continue
+        # Skip lines that are just paths
+        if re.match(r'^\s*/home/|^\s*~/', stripped):
+            continue
+        # Skip session/metadata lines
+        if re.match(r'^(Session:|Duration:|Messages:|Resume this)', stripped):
+            break
+        filtered.append(line)
+    content = '\n'.join(filtered)
+
+    # 去除session尾部
+    result_lines = []
+    for line in content.split('\n'):
         stripped = line.strip()
         if re.match(r'^(Resume this session|Session:|Duration:|Messages:)', stripped):
             break
-        filtered.append(line)
+        result_lines.append(line)
 
-    content = '\n'.join(filtered).strip()
-
-    # 清理多余空行
+    content = '\n'.join(result_lines).strip()
     content = re.sub(r'\n{3,}', '\n\n', content)
-
     return content
 
 
