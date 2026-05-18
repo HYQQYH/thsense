@@ -18,7 +18,7 @@ def sanitize_filename(name: str) -> str:
 def extract_analysis_content(raw_output: str) -> str:
     """
     从 hermes-agent 输出中提取纯分析内容
-    策略：找 "Query:" 标记取其后内容；fallback时跳过初始化日志行
+    策略：提取 "╭─ ⚕ Hermes ─" 和 "╰─" 之间的内容
     """
     # 去除ANSI转义序列
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
@@ -27,50 +27,33 @@ def extract_analysis_content(raw_output: str) -> str:
     # 去除braille unicode空白
     clean = re.sub(r'[\u2800-\u28FF]', '', clean)
 
-    # 找 Query: 标记，取其后的所有内容
-    match = re.search(r'Query:\s*使用SKILL:', clean)
-    if match:
-        content = clean[match.end():]
+    # 找 "╭─ ⚕ Hermes ─" 开始标记
+    start_match = re.search(r'╭─\s*⚕\s*Hermes\s*─', clean)
+    if not start_match:
+        # fallback: 找包含"【财经新闻深度分析】"的内容块
+        match = re.search(r'【财经新闻深度分析】', clean)
+        if match:
+            # 取从该位置到session尾部之前的所有内容
+            content = clean[match.start():]
+        else:
+            content = clean
     else:
-        content = clean
+        # 找 "╰──────────────────────────────────" 结束标记
+        # 模式: ╰ 后跟任意数量的 ─ 和空格
+        end_match = re.search(r'╰[─\s]', clean[start_match.end():])
+        if end_match:
+            content = clean[start_match.end():start_match.end() + end_match.start()]
+        else:
+            # 没有找到结束标记，取开始标记之后到session尾部之前的内容
+            session_start = clean.find('Session:', start_match.end())
+            if session_start > 0:
+                content = clean[start_match.end():session_start]
+            else:
+                content = clean[start_match.end():]
 
-    # 统一过滤：应用skip_patterns去除初始化日志和工具准备行
-    lines = content.split('\n')
-    filtered = []
-    skip_patterns = [
-        r'^Initializing agent',
-        r'^.*\s+[📚🔎⚕]\s',  # log lines with emoji prefix
-        r'^\s*┊',  # pipe prefix log lines
-        r'^\s*─{3,}\s*$',  # separator lines
-        r'^\s*[╭╮╰│─╯]\s*$',  # box drawing
-    ]
-    for line in lines:
-        stripped = line.strip()
-        if any(re.search(p, line) for p in skip_patterns):
-            continue
-        # Skip tool/skill list lines (short lines with : but no Chinese)
-        if re.match(r'^\s+\w+:\s', stripped) and not re.search(r'[\u4e00-\u9fff]', stripped):
-            continue
-        # Skip lines that are just paths
-        if re.match(r'^\s*/home/|^\s*~/', stripped):
-            continue
-        # Skip session/metadata lines
-        if re.match(r'^(Session:|Duration:|Messages:|Resume this)', stripped):
-            break
-        filtered.append(line)
-    content = '\n'.join(filtered)
-
-    # 去除session尾部
-    result_lines = []
-    for line in content.split('\n'):
-        stripped = line.strip()
-        if re.match(r'^(Resume this session|Session:|Duration:|Messages:)', stripped):
-            break
-        result_lines.append(line)
-
-    content = '\n'.join(result_lines).strip()
+    # 清理多余空行
     content = re.sub(r'\n{3,}', '\n\n', content)
-    return content
+    return content.strip()
 
 
 def analyze_single_news(news_item: dict, date: str, max_retries: int = 3) -> str:
