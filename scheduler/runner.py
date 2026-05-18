@@ -20,13 +20,12 @@ def load_config():
     with open("config.yaml") as f:
         return yaml.safe_load(f)
 
-def job():
-    """定时任务：爬取 → 分类 → 分析"""
-    logger.info("=== Starting scheduled job ===")
+def fetch_news_job():
+    """定时任务：爬取最新新闻"""
+    logger.info("=== Starting fetch news job ===")
     config = load_config()
 
     try:
-        # 1. 爬取最新新闻
         from crawler import fetch_today_news
         from db import SQLiteClient
 
@@ -40,7 +39,24 @@ def job():
         else:
             logger.warning("No news fetched")
 
-        # 2. 分类过滤
+        db.close()
+        logger.info("=== Fetch job complete ===\n")
+
+    except Exception as e:
+        logger.error(f"Fetch job failed: {e}", exc_info=True)
+
+
+def classify_job():
+    """定时任务：分类过滤"""
+    logger.info("=== Starting classify job ===")
+    config = load_config()
+
+    try:
+        from db import SQLiteClient
+
+        db = SQLiteClient(config["database"]["path"])
+
+        # 分类过滤
         logger.info("Classifying news...")
         pending = db.get_unclassified_news()
         if pending:
@@ -53,35 +69,28 @@ def job():
             # 标记已分类
             db.mark_raw_news_classified([pending[idx]["id"] for idx in matched_indices])
             logger.info(f"Matched {len(matched_indices)} news items")
-
-        # # 3. 深度分析（逐条）
-        # logger.info("Analyzing news...")
-        # to_analyze = db.get_pending_analysis()
-        # if to_analyze:
-        #     from analyzer import analyze_news
-        #     date = datetime.now().strftime("%Y-%m-%d")
-        #     report_paths = analyze_news(to_analyze, date)
-        #     for i, item in enumerate(to_analyze):
-        #         path = report_paths[i] if i < len(report_paths) else ""
-        #         db.mark_analyzed(item["id"], path)
-        #     logger.info(f"Analysis complete: {len(report_paths)} reports")
+        else:
+            logger.info("No pending news to classify")
 
         db.close()
-        logger.info("=== Job complete ===\n")
+        logger.info("=== Classify job complete ===\n")
 
     except Exception as e:
-        logger.error(f"Job failed: {e}", exc_info=True)
+        logger.error(f"Classify job failed: {e}", exc_info=True)
 
 
 def start_scheduler():
-    config = load_config()
-    interval = config["crawler"]["interval_minutes"]
+    # 爬取新闻：每5分钟执行一次
+    schedule.every(5).minutes.do(fetch_news_job)
+    logger.info("Scheduler started, fetch news every 5 minutes")
 
-    schedule.every(interval).minutes.do(job)
-    logger.info(f"Scheduler started, running every {interval} minutes")
+    # 分类过滤：每半小时执行一次
+    schedule.every(30).minutes.do(classify_job)
+    logger.info("Scheduler started, classify every 30 minutes")
 
-    # 立即执行一次
-    job()
+    # 立即各执行一次
+    fetch_news_job()
+    classify_job()
 
     while True:
         schedule.run_pending()
