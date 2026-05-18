@@ -21,7 +21,8 @@ def extract_analysis_content(raw_output: str) -> str:
     从 hermes-agent 输出中提取纯分析内容
     - 去除终端UI框线（╭╮╰等字符）
     - 去除ANSI转义序列
-    - 只保留Query之后的内容
+    - 去除初始化日志（Initializing agent...、📚/🔎/⚕等符号行）
+    - 去除尾部session信息（Resume this session.../Session:.../Duration:...）
     """
     # 去除ANSI转义序列
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
@@ -30,25 +31,28 @@ def extract_analysis_content(raw_output: str) -> str:
     # 去除终端UI框线字符（╭╮╰│─等）
     clean = re.sub(r'[╭╮╰│─]', '', clean)
 
-    # 找到 Query: 之后的实际内容
-    match = re.search(r'Query:\s*使用SKILL:.*?\n+(.*)$', clean, re.DOTALL)
-    if match:
-        content = match.group(1).strip()
-    else:
-        # fallback: 去掉开头的工具列表等元信息，找到实际内容
-        lines = clean.split('\n')
-        content_lines = []
-        capture = False
-        for line in lines:
-            # Skip lines that look like tool/skill listings
-            if re.match(r'^\s*[⠀\s]+', line) and '·' not in line:
-                continue
-            if line.strip().startswith('Query:'):
-                capture = True
-                continue
-            if capture or any(kw in line for kw in ['分析', '影响', '市场', '利润', '财报', '公司']):
-                content_lines.append(line)
-        content = '\n'.join(content_lines).strip()
+    # 去除ANSI色码符号（⠀⠀ etc.）
+    clean = re.sub(r'[⠀⠀]', '', clean)
+
+    # 去除初始化日志行（Initializing agent...、📚 preparing、🔎 grep、⚕ Hermes等）
+    lines = clean.split('\n')
+    filtered = []
+    for line in lines:
+        # Skip session metadata at end
+        if re.match(r'^(Resume this session|Session:|Duration:|Messages:)', line.strip()):
+            break
+        # Skip initialization and tool preparation logs
+        if re.match(r'^\s*(Initializing agent|📚|🔎|⚕)', line.strip()):
+            continue
+        # Skip empty lines that are just whitespace
+        if re.match(r'^\s*$', line):
+            continue
+        # Skip lines that are just separator dashes
+        if re.match(r'^\s*[-═\s]+$', line):
+            continue
+        filtered.append(line)
+
+    content = '\n'.join(filtered).strip()
 
     # 去除多余空行
     content = re.sub(r'\n{3,}', '\n\n', content)
