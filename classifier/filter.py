@@ -84,7 +84,19 @@ def classify_news(news_items: list[dict], criteria: str, max_retries: int = 3, r
 
                 for block in response.content:
                     if block.type == "text":
-                        indices = json.loads(block.text)
+                        text = block.text.strip()
+                        if not text:
+                            raise ValueError("LLM returned empty response")
+                        # 提取JSON数组部分
+                        try:
+                            indices = json.loads(text)
+                        except json.JSONDecodeError:
+                            import re
+                            match = re.search(r'\[.*\]', text, re.DOTALL)
+                            if match:
+                                indices = json.loads(match.group())
+                            else:
+                                raise ValueError(f"Invalid JSON response: {text[:100]}")
                         # 偏移量修正（因为是分批处理）
                         all_matched.extend([idx + i for idx in indices])
                         break
