@@ -80,13 +80,13 @@ def classify_job():
 
 
 def start_scheduler():
-    # 爬取新闻：每5分钟执行一次
-    schedule.every(5).minutes.do(fetch_news_job)
-    logger.info("Scheduler started, fetch news every 5 minutes")
+    # 爬取新闻：每3分钟执行一次
+    schedule.every(3).minutes.do(fetch_news_job)
+    logger.info("Scheduler started, fetch news every 3 minutes")
 
-    # 分类过滤：每半小时执行一次
-    schedule.every(30).minutes.do(classify_job)
-    logger.info("Scheduler started, classify every 30 minutes")
+    # 分类过滤：每10分钟执行一次
+    schedule.every(10).minutes.do(classify_job)
+    logger.info("Scheduler started, classify every 10 minutes")
 
     # 立即各执行一次
     fetch_news_job()

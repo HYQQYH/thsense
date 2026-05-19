@@ -16,7 +16,7 @@ def fetch_today_news() -> list[dict]:
     爬取同花顺实时新闻
     返回: [{"title": ..., "time": ..., "source": ..., "url": ..., "content": ...}, ...]
     """
-    browser = launch()
+    browser = launch(proxy=None)
     page = browser.new_page()
     page.goto("https://news.10jqka.com.cn/realtimenews.html")
     page.wait_for_selector(SELECTORS["container"])
