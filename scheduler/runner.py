@@ -63,11 +63,12 @@ def classify_job():
             from classifier import classify_news
             criteria = config["classifier"]["criteria"]
             matched_indices = classify_news(pending, criteria)
-            # 更新 classified_news
-            for idx in matched_indices:
+            # 更新 classified_news（过滤掉越界索引）
+            valid_matched = [idx for idx in matched_indices if 0 <= idx < len(pending)]
+            for idx in valid_matched:
                 db.insert_classified_news([pending[idx]["id"]], ["财经"])
             # 标记已分类
-            db.mark_raw_news_classified([pending[idx]["id"] for idx in matched_indices])
+            db.mark_raw_news_classified([pending[idx]["id"] for idx in valid_matched])
             logger.info(f"Matched {len(matched_indices)} news items")
         else:
             logger.info("No pending news to classify")

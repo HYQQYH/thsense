@@ -71,7 +71,7 @@ def classify_news(news_items: list[dict], criteria: str, max_retries: int = 3, r
             try:
                 response = client.messages.create(
                     model="MiniMax-M2.7",
-                    max_tokens=1000,
+                    max_tokens=8192,
                     system=SYSTEM_PROMPT,
                     messages=[{
                         "role": "user",
@@ -97,8 +97,9 @@ def classify_news(news_items: list[dict], criteria: str, max_retries: int = 3, r
                                 indices = json.loads(match.group())
                             else:
                                 raise ValueError(f"Invalid JSON response: {text[:100]}")
-                        # 偏移量修正（因为是分批处理）
-                        all_matched.extend([idx + i for idx in indices])
+                        # 偏移量修正（因为是分批处理），并过滤越界索引
+                        valid_indices = [idx + i for idx in indices if 0 <= idx < len(batch)]
+                        all_matched.extend(valid_indices)
                         break
                 break
 
