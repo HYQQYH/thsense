@@ -4,3 +4,5 @@ PyYAML
 schedule
 pytest
 python-dotenv
+fastapi
+uvicorn
