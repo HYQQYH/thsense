@@ -1,6 +1,7 @@
 let currentPage = 1;
 let filters = { category: '', source: '', status: '', start_date: '', end_date: '' };
 let lastLoadedItems = [];
+let currentSearchItem = null;
 
 async function loadStats() {
     const res = await fetch('/api/stats');
@@ -158,6 +159,42 @@ document.getElementById('statusFilter').addEventListener('change', e => {
 document.getElementById('modal').addEventListener('click', e => {
     if (e.target.id === 'modal') closeModal();
 });
+
+async function searchById() {
+    const id = document.getElementById('searchId').value.trim();
+    if (!id) return;
+
+    const res = await fetch(`/api/news?id=${encodeURIComponent(id)}`);
+    if (!res.ok) {
+        alert('查找失败');
+        return;
+    }
+    const data = await res.json();
+    if (data.items && data.items.length > 0) {
+        currentSearchItem = data.items[0];
+        showModalDirect(data.items[0]);
+    } else {
+        alert('未找到该ID对应的新闻');
+    }
+}
+
+function showModalDirect(item) {
+    try {
+        document.getElementById('modalTitle').textContent = item.title;
+        document.getElementById('modalTime').textContent = item.created_at ? item.created_at.slice(0, 16) : item.time;
+        document.getElementById('modalSource').textContent = item.source;
+        document.getElementById('modalStatus').textContent = item.raw_status ? `状态: ${item.raw_status}` : '';
+        document.getElementById('modalCategory').textContent = item.category || '未分类';
+        const url = item.url && item.url.startsWith('http') ? item.url : '#';
+        document.getElementById('modalUrl').href = escapeHtml(url);
+        document.getElementById('modalContent').textContent = item.content || '无内容';
+        document.getElementById('modalReport').textContent = item.analysis_report || '无分析报告';
+
+        document.getElementById('modal').classList.add('show');
+    } catch (e) {
+        console.error('Failed to load modal:', e);
+    }
+}
 
 loadStats();
 loadNews();

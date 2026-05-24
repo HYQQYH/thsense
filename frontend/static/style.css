@@ -38,7 +38,21 @@ header {
     align-items: center;
 }
 
+.filter-bar .search-by-id {
+    display: flex;
+    gap: 6px;
+    margin-right: auto;
+}
+
 .filter-bar select, .filter-bar input {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.filter-bar .search-by-id input {
+    width: 120px;
     padding: 8px 12px;
     border: 1px solid #ddd;
     border-radius: 6px;

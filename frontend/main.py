@@ -39,6 +39,7 @@ async def root():
 
 @app.get("/api/news")
 async def get_news(
+    id: Optional[int] = Query(None),
     category: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
@@ -55,6 +56,9 @@ async def get_news(
         where_clauses = []
         params = []
 
+        if id:
+            where_clauses.append("r.id = ?")
+            params.append(id)
         if category:
             where_clauses.append("c.category = ?")
             params.append(category)
@@ -77,21 +81,33 @@ async def get_news(
 
         offset = (page - 1) * page_size
 
-        count_sql = f"SELECT COUNT(*) FROM raw_news r LEFT JOIN classified_news c ON r.id = c.raw_id{where_sql}"
-        cursor.execute(count_sql, params)
-        total = cursor.fetchone()[0]
+        if id:
+            sql = """
+                SELECT r.id, r.title, r.time, r.source, r.url, r.content, r.raw_status,
+                       c.category, c.analysis_report, r.created_at
+                FROM raw_news r
+                LEFT JOIN classified_news c ON r.id = c.raw_id
+                WHERE r.id = ?
+            """
+            cursor.execute(sql, [id])
+            rows = cursor.fetchall()
+            total = len(rows)
+        else:
+            count_sql = f"SELECT COUNT(*) FROM raw_news r LEFT JOIN classified_news c ON r.id = c.raw_id{where_sql}"
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
 
-        sql = f"""
-            SELECT r.id, r.title, r.time, r.source, r.url, r.content, r.raw_status,
-                   c.category, c.analysis_report, r.created_at
-            FROM raw_news r
-            LEFT JOIN classified_news c ON r.id = c.raw_id
-            {where_sql}
-            ORDER BY r.created_at DESC
-            LIMIT ? OFFSET ?
-        """
-        cursor.execute(sql, params + [page_size, offset])
-        rows = cursor.fetchall()
+            sql = f"""
+                SELECT r.id, r.title, r.time, r.source, r.url, r.content, r.raw_status,
+                       c.category, c.analysis_report, r.created_at
+                FROM raw_news r
+                LEFT JOIN classified_news c ON r.id = c.raw_id
+                {where_sql}
+                ORDER BY r.created_at DESC
+                LIMIT ? OFFSET ?
+            """
+            cursor.execute(sql, params + [page_size, offset])
+            rows = cursor.fetchall()
     finally:
         if conn:
             conn.close()
