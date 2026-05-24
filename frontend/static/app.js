@@ -1,5 +1,6 @@
 let currentPage = 1;
 let filters = { category: '', source: '', start_date: '', end_date: '' };
+let lastLoadedItems = [];
 
 async function loadStats() {
     const res = await fetch('/api/stats');
@@ -34,6 +35,7 @@ async function loadNews() {
     const res = await fetch(`/api/news?${params}`);
     const data = await res.json();
 
+    lastLoadedItems = data.items;
     renderGrid(data.items);
     renderPagination(data.total, data.page_size);
 }
@@ -75,21 +77,23 @@ function renderPagination(total, pageSize) {
 }
 
 async function showModal(id) {
-    const params = new URLSearchParams({ category: '', source: '', page: 1, page_size: 1000 });
-    const res = await fetch(`/api/news?${params}`);
-    const data = await res.json();
-    const item = data.items.find(i => i.id === id);
-    if (!item) return;
+    try {
+        const item = lastLoadedItems.find(i => i.id === id);
+        if (!item) return;
 
-    document.getElementById('modalTitle').textContent = item.title;
-    document.getElementById('modalTime').textContent = item.time;
-    document.getElementById('modalSource').textContent = item.source;
-    document.getElementById('modalCategory').textContent = item.category || '未分类';
-    document.getElementById('modalUrl').href = item.url || '#';
-    document.getElementById('modalContent').textContent = item.content || '无内容';
-    document.getElementById('modalReport').textContent = item.analysis_report || '无分析报告';
+        document.getElementById('modalTitle').textContent = item.title;
+        document.getElementById('modalTime').textContent = item.time;
+        document.getElementById('modalSource').textContent = item.source;
+        document.getElementById('modalCategory').textContent = item.category || '未分类';
+        const url = item.url && item.url.startsWith('http') ? item.url : '#';
+        document.getElementById('modalUrl').href = escapeHtml(url);
+        document.getElementById('modalContent').textContent = item.content || '无内容';
+        document.getElementById('modalReport').textContent = item.analysis_report || '无分析报告';
 
-    document.getElementById('modal').classList.add('show');
+        document.getElementById('modal').classList.add('show');
+    } catch (e) {
+        console.error('Failed to load modal:', e);
+    }
 }
 
 function closeModal() {
