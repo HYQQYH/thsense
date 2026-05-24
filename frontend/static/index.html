@@ -19,6 +19,12 @@
         <select id="sourceFilter">
             <option value="">全部来源</option>
         </select>
+        <select id="statusFilter">
+            <option value="">全部状态</option>
+            <option value="new">新采集</option>
+            <option value="analyzed">已分析</option>
+            <option value="classified">已分类</option>
+        </select>
         <input type="date" id="startDate" placeholder="开始日期">
         <input type="date" id="endDate" placeholder="结束日期">
         <button onclick="resetFilters()">重置</button>
@@ -36,6 +42,7 @@
             <div class="modal-meta">
                 <span id="modalTime"></span>
                 <span id="modalSource"></span>
+                <span id="modalStatus"></span>
                 <span id="modalCategory"></span>
             </div>
             <a id="modalUrl" href="#" target="_blank">查看原文</a>

@@ -1,5 +1,5 @@
 let currentPage = 1;
-let filters = { category: '', source: '', start_date: '', end_date: '' };
+let filters = { category: '', source: '', status: '', start_date: '', end_date: '' };
 let lastLoadedItems = [];
 
 async function loadStats() {
@@ -29,6 +29,7 @@ async function loadNews() {
     const params = new URLSearchParams({ page: currentPage, page_size: 12 });
     if (filters.category) params.append('category', filters.category);
     if (filters.source) params.append('source', filters.source);
+    if (filters.status) params.append('status', filters.status);
     if (filters.start_date) params.append('start_date', filters.start_date);
     if (filters.end_date) params.append('end_date', filters.end_date);
 
@@ -46,9 +47,10 @@ function renderGrid(items) {
         <div class="news-card" onclick="showModal(${item.id})">
             <h3>${escapeHtml(item.title)}</h3>
             <div class="meta">
-                <span>${item.time}</span>
+                <span>${item.created_at ? item.created_at.slice(0, 16) : item.time}</span>
                 <span>${escapeHtml(item.source)}</span>
             </div>
+            ${item.raw_status ? `<span class="status-tag status-${item.raw_status}">${escapeHtml(item.raw_status)}</span>` : ''}
             ${item.category ? `<span class="category-tag">${escapeHtml(item.category)}</span>` : ''}
         </div>
     `).join('');
@@ -84,6 +86,7 @@ async function showModal(id) {
         document.getElementById('modalTitle').textContent = item.title;
         document.getElementById('modalTime').textContent = item.time;
         document.getElementById('modalSource').textContent = item.source;
+        document.getElementById('modalStatus').textContent = item.raw_status ? `状态: ${item.raw_status}` : '';
         document.getElementById('modalCategory').textContent = item.category || '未分类';
         const url = item.url && item.url.startsWith('http') ? item.url : '#';
         document.getElementById('modalUrl').href = escapeHtml(url);
@@ -106,9 +109,10 @@ function goToPage(page) {
 }
 
 function resetFilters() {
-    filters = { category: '', source: '', start_date: '', end_date: '' };
+    filters = { category: '', source: '', status: '', start_date: '', end_date: '' };
     document.getElementById('categoryFilter').value = '';
     document.getElementById('sourceFilter').value = '';
+    document.getElementById('statusFilter').value = '';
     document.getElementById('startDate').value = '';
     document.getElementById('endDate').value = '';
     currentPage = 1;
@@ -141,6 +145,12 @@ document.getElementById('startDate').addEventListener('change', e => {
 
 document.getElementById('endDate').addEventListener('change', e => {
     filters.end_date = e.target.value;
+    currentPage = 1;
+    loadNews();
+});
+
+document.getElementById('statusFilter').addEventListener('change', e => {
+    filters.status = e.target.value;
     currentPage = 1;
     loadNews();
 });

@@ -41,6 +41,7 @@ async def root():
 async def get_news(
     category: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
@@ -60,11 +61,14 @@ async def get_news(
         if source:
             where_clauses.append("r.source = ?")
             params.append(source)
+        if status:
+            where_clauses.append("r.raw_status = ?")
+            params.append(status)
         if start_date:
-            where_clauses.append("r.time >= ?")
+            where_clauses.append("DATE(r.created_at) >= ?")
             params.append(start_date)
         if end_date:
-            where_clauses.append("r.time <= ?")
+            where_clauses.append("DATE(r.created_at) <= ?")
             params.append(end_date)
 
         where_sql = ""
@@ -78,12 +82,12 @@ async def get_news(
         total = cursor.fetchone()[0]
 
         sql = f"""
-            SELECT r.id, r.title, r.time, r.source, r.url, r.content,
+            SELECT r.id, r.title, r.time, r.source, r.url, r.content, r.raw_status,
                    c.category, c.analysis_report, r.created_at
             FROM raw_news r
             LEFT JOIN classified_news c ON r.id = c.raw_id
             {where_sql}
-            ORDER BY r.time DESC
+            ORDER BY r.created_at DESC
             LIMIT ? OFFSET ?
         """
         cursor.execute(sql, params + [page_size, offset])
@@ -101,6 +105,7 @@ async def get_news(
             "source": row["source"],
             "url": row["url"],
             "content": row["content"],
+            "raw_status": row["raw_status"] or "",
             "category": row["category"] or "",
             "analysis_report": row["analysis_report"] or "",
             "created_at": row["created_at"],
