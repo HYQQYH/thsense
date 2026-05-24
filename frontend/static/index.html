@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新闻数据库</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">📰 新闻数据库</div>
+        <div class="stats" id="stats"></div>
+    </header>
+
+    <div class="filter-bar">
+        <select id="categoryFilter">
+            <option value="">全部分类</option>
+        </select>
+        <select id="sourceFilter">
+            <option value="">全部来源</option>
+        </select>
+        <input type="date" id="startDate" placeholder="开始日期">
+        <input type="date" id="endDate" placeholder="结束日期">
+        <button onclick="resetFilters()">重置</button>
+    </div>
+
+    <main>
+        <div class="news-grid" id="newsGrid"></div>
+        <div class="pagination" id="pagination"></div>
+    </main>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modalTitle"></h2>
+            <div class="modal-meta">
+                <span id="modalTime"></span>
+                <span id="modalSource"></span>
+                <span id="modalCategory"></span>
+            </div>
+            <a id="modalUrl" href="#" target="_blank">查看原文</a>
+            <div id="modalContent"></div>
+            <div class="analysis-report" id="modalReport"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
