@@ -18,7 +18,8 @@ async def startup_event():
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR.parent / "data" / "news.db"
+# Use the actual database location from the main project
+DB_PATH = Path("/home/huang/projects/thsense/data/news.db")
 
 
 def get_db_connection():
