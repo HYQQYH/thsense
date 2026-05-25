@@ -98,6 +98,7 @@ def classify_news(news_items: list[dict], criteria: str, max_retries: int = 3, r
                             else:
                                 raise ValueError(f"Invalid JSON response: {text[:100]}")
                         # 偏移量修正（因为是分批处理），并过滤越界索引
+                        # 先判断局部索引是否在批次范围内，再加偏移量得到全局索引
                         valid_indices = [idx + i for idx in indices if 0 <= idx < len(batch)]
                         all_matched.extend(valid_indices)
                         break

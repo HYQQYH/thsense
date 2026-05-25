@@ -27,12 +27,16 @@ async def _fetch_today_news_async() -> list[dict]:
 
     for item in items:
         try:
+            title_el = await item.query_selector(SELECTORS["title"])
+            time_el = await item.query_selector(SELECTORS["time"])
+            url_el = await item.query_selector(SELECTORS["url"])
+            content_el = await item.query_selector(SELECTORS["content"])
             news = {
-                "title": await item.query_selector(SELECTORS["title"]).inner_text(),
-                "time": await item.query_selector(SELECTORS["time"]).inner_text(),
+                "title": await title_el.inner_text(),
+                "time": await time_el.inner_text(),
                 "source": "同花顺",  # 默认值
-                "url": await item.query_selector(SELECTORS["url"]).get_attribute("href"),
-                "content": await item.query_selector(SELECTORS["content"]).inner_text(),
+                "url": await url_el.get_attribute("href"),
+                "content": await content_el.inner_text(),
             }
             news_list.append(news)
         except Exception:

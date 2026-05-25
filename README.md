@@ -33,3 +33,14 @@ python main.py
 - `scheduler/` - 定时调度
 - `db/` - 数据存储
 - `reports/` - 分析报告输出目录
+- `frontend/` - 新闻数据库查看前端
+
+## 新闻数据库前端
+
+查看 `data/news.db` 中的新闻数据。
+
+```bash
+cd frontend && uvicorn main:app --host 0.0.0.0 --port 5173
+```
+
+访问 http://localhost:5173

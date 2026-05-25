@@ -64,12 +64,23 @@ def classify_job():
             criteria = config["classifier"]["criteria"]
             matched_indices = classify_news(pending, criteria)
             # 更新 classified_news（过滤掉越界索引）
-            valid_matched = [idx for idx in matched_indices if 0 <= idx < len(pending)]
-            for idx in valid_matched:
-                db.insert_classified_news([pending[idx]["id"]], ["财经"])
-            # 标记已分类
-            db.mark_raw_news_classified([pending[idx]["id"] for idx in valid_matched])
-            logger.info(f"Matched {len(matched_indices)} news items")
+            valid_matched = set(idx for idx in matched_indices if 0 <= idx < len(pending))
+            all_indices = set(range(len(pending)))
+            unmatched_indices = all_indices - valid_matched
+
+            # 匹配成功的归类为"财经"，状态 pending
+            if valid_matched:
+                matched_ids = [pending[idx]["id"] for idx in valid_matched]
+                db.insert_classified_news(matched_ids, ["财经"] * len(matched_ids), "pending")
+
+            # 未匹配的归类为"其他"，状态 others
+            if unmatched_indices:
+                unmatched_ids = [pending[idx]["id"] for idx in unmatched_indices]
+                db.insert_classified_news(unmatched_ids, ["其他"] * len(unmatched_ids), "others")
+
+            # 标记整批已分类
+            db.mark_raw_news_classified([pending[idx]["id"] for idx in all_indices])
+            logger.info(f"Matched {len(valid_matched)}, unmatched {len(unmatched_indices)}")
         else:
             logger.info("No pending news to classify")
 
@@ -81,13 +92,13 @@ def classify_job():
 
 
 def start_scheduler():
-    # 爬取新闻：每3分钟执行一次
-    schedule.every(3).minutes.do(fetch_news_job)
-    logger.info("Scheduler started, fetch news every 3 minutes")
+    # 爬取新闻：每5分钟执行一次
+    schedule.every(5).minutes.do(fetch_news_job)
+    logger.info("Scheduler started, fetch news every 5 minutes")
 
     # 分类过滤：每10分钟执行一次
-    schedule.every(10).minutes.do(classify_job)
-    logger.info("Scheduler started, classify every 10 minutes")
+    schedule.every(15).minutes.do(classify_job)
+    logger.info("Scheduler started, classify every 15 minutes")
 
     # 立即各执行一次
     fetch_news_job()

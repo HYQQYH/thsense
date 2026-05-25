@@ -69,12 +69,12 @@ class SQLiteClient:
         """, ids)
         self.conn.commit()
 
-    def insert_classified_news(self, raw_ids: list[int], categories: list[str]):
+    def insert_classified_news(self, raw_ids: list[int], categories: list[str], status: str = "pending"):
         for raw_id, category in zip(raw_ids, categories):
             self.conn.execute("""
                 INSERT INTO classified_news (raw_id, category, status)
-                VALUES (?, ?, 'pending')
-            """, (raw_id, category))
+                VALUES (?, ?, ?)
+            """, (raw_id, category, status))
         self.conn.commit()
 
     def get_pending_analysis(self) -> list[dict]:
